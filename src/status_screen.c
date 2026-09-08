@@ -206,7 +206,8 @@ static void eq_timer_cb(lv_timer_t *timer) {
             continue;
         }
         uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
-        lv_obj_set_height(eq_bars[i], h);
+        lv_obj_set_size(eq_bars[i], 5, h);
+        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
     }
 }
 
@@ -284,10 +285,14 @@ lv_obj_t *zmk_display_status_screen() {
     /* Line 2: Audio/Typing Wave Visualizer anchored across the bottom */
     for (int i = 0; i < NUM_EQ_BARS; i++) {
         eq_bars[i] = lv_obj_create(screen);
-        lv_obj_remove_style_all(eq_bars[i]); /* Remove transparent backgrounds and paddings */
-        lv_obj_set_size(eq_bars[i], 5, base_eq_heights[i]);
-        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_clear_flag(eq_bars[i], LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(eq_bars[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_MAIN);
+        
+        lv_obj_set_size(eq_bars[i], 5, base_eq_heights[i]);
         /* Anchor to bottom left, spaced evenly */
         lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
     }
