@@ -206,8 +206,7 @@ static void eq_timer_cb(lv_timer_t *timer) {
             continue;
         }
         uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
-        lv_obj_set_size(eq_bars[i], 5, h);
-        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
+        lv_bar_set_value(eq_bars[i], h, LV_ANIM_OFF);
     }
 }
 
@@ -232,6 +231,7 @@ ZMK_SUBSCRIPTION(key_press_sub, zmk_position_state_changed);
  * ========================================================================= */
 lv_obj_t *zmk_display_status_screen() {
     lv_obj_t *screen = lv_obj_create(NULL);
+    lv_obj_set_size(screen, 128, 32); /* Explicitly set size to prevent alignment bugs */
     lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
@@ -240,6 +240,8 @@ lv_obj_t *zmk_display_status_screen() {
     /* Line 1: Bluetooth / USB Output on Top-Left */
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
     zmk_widget_output_status_init(&output_status_widget, screen);
+    lv_obj_set_style_text_font(zmk_widget_output_status_obj(&output_status_widget),
+                               lv_theme_get_font_small(screen), LV_PART_MAIN);
     lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
 #endif
 
@@ -253,6 +255,7 @@ lv_obj_t *zmk_display_status_screen() {
 
     /* Line 1: Custom Battery Symbol on Top-Right */
     battery_label = lv_label_create(screen);
+    lv_obj_set_style_text_font(battery_label, lv_theme_get_font_small(screen), LV_PART_MAIN);
     lv_label_set_text(battery_label, LV_SYMBOL_BATTERY_FULL);
     lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, 0, 0);
     custom_battery_widget_init();
@@ -273,30 +276,39 @@ lv_obj_t *zmk_display_status_screen() {
     /* Line 1: Peripheral Connection Status on Top-Left */
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_PERIPHERAL_STATUS)
     zmk_widget_peripheral_status_init(&peripheral_status_widget, screen);
+    lv_obj_set_style_text_font(zmk_widget_peripheral_status_obj(&peripheral_status_widget),
+                               lv_theme_get_font_small(screen), LV_PART_MAIN);
     lv_obj_align(zmk_widget_peripheral_status_obj(&peripheral_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
 #endif
 
     /* Line 1: Custom Battery Symbol on Top-Right */
     battery_label = lv_label_create(screen);
+    lv_obj_set_style_text_font(battery_label, lv_theme_get_font_small(screen), LV_PART_MAIN);
     lv_label_set_text(battery_label, LV_SYMBOL_BATTERY_FULL);
     lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, 0, 0);
     custom_battery_widget_init();
 
     /* Line 2: Audio/Typing Wave Visualizer anchored across the bottom */
     for (int i = 0; i < NUM_EQ_BARS; i++) {
-        eq_bars[i] = lv_obj_create(screen);
-        lv_obj_clear_flag(eq_bars[i], LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
-        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(eq_bars[i], 0, LV_PART_MAIN);
-        lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_MAIN);
+        eq_bars[i] = lv_bar_create(screen);
+        lv_bar_set_range(eq_bars[i], 0, 32);
+        lv_bar_set_value(eq_bars[i], base_eq_heights[i], LV_ANIM_OFF);
         
-        lv_obj_set_size(eq_bars[i], 5, base_eq_heights[i]);
+        lv_obj_set_size(eq_bars[i], 5, 32);
+        
+        /* Make the bar background completely transparent so only the active value shows */
+        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
+        
+        /* Style the actual filled part to be solid white */
+        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_INDICATOR);
+        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_INDICATOR);
+        lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_INDICATOR);
+        
         /* Anchor to bottom left, spaced evenly */
         lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
     }
-
     lv_timer_create(eq_timer_cb, 100, NULL);
 #endif
 
