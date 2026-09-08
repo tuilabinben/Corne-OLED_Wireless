@@ -151,10 +151,6 @@ ZMK_SUBSCRIPTION(custom_battery_widget, zmk_battery_state_changed);
  * ========================================================================= */
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
 
-#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
-static struct zmk_widget_battery_status battery_status_widget;
-#endif
-
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
 static struct zmk_widget_output_status output_status_widget;
 #endif
@@ -196,10 +192,6 @@ ZMK_SUBSCRIPTION(custom_wpm_widget, zmk_wpm_state_changed);
 
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_PERIPHERAL_STATUS)
 static struct zmk_widget_peripheral_status peripheral_status_widget;
-#endif
-
-#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
-static struct zmk_widget_battery_status peripheral_battery_status_widget;
 #endif
 
 #define NUM_EQ_BARS 11
