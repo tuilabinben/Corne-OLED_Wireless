@@ -10,6 +10,18 @@
 #include <dt-bindings/zmk/rgb.h>
 
 / {
+    behaviors {
+        lt_bspc: layer_tap_bspc {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "balanced";
+            tapping-term-ms = <200>;
+            quick-tap-ms = <200>;
+            require-prior-idle-ms = <130>;
+            bindings = <&mo>, <&kp>;
+        };
+    };
+
     keymap {
         compatible = "zmk,keymap";
 
@@ -21,25 +33,25 @@
             //                    | GUI | LWR | SPC |   | ENT | RSE  | ALT |
 
             bindings = <
-&kp TAB           &kp Q  &kp W  &kp F                  &kp P            &kp B             &kp J        &kp L      &kp U                  &kp Y    &kp SEMI  &kp ESC
-&kp BACKSPACE     &kp A  &kp R  &kp S                  &kp T            &kp G             &kp M        &kp N      &kp E                  &kp I    &kp O     &kp SQT
-&kp LEFT_CONTROL  &kp Z  &kp X  &kp C                  &kp D            &kp V             &kp K        &kp H      &kp COMMA              &kp DOT  &kp FSLH  &kp DEL
-                                &mt LEFT_ALT LEFT_GUI  &lt 1 BACKSPACE  &kp LEFT_SHIFT    &lt 2 ENTER  &kp SPACE  &mt RIGHT_CONTROL TAB
+&kp TAB           &kp Q  &kp W  &kp F                  &kp P                   &kp B             &kp J        &kp L      &kp U                  &kp Y    &kp SEMI  &kp ESC
+&kp BACKSPACE     &kp A  &kp R  &kp S                  &kp T                   &kp G             &kp M        &kp N      &kp E                  &kp I    &kp O     &kp SQT
+&kp LEFT_CONTROL  &kp Z  &kp X  &kp C                  &kp D                   &kp V             &kp K        &kp H      &kp COMMA              &kp DOT  &kp FSLH  &kp DEL
+                                &mt LEFT_ALT LEFT_GUI  &lt_bspc 1 BACKSPACE    &kp LEFT_SHIFT    &lt 2 ENTER  &kp SPACE  &mt RIGHT_CONTROL TAB
             >;
         };
 
         lower_layer {
             // -----------------------------------------------------------------------------------------
-            // |  TAB |  1  |  2  |  3  |  4  |  5  |   |  6  |  7  |  8  |  9  |  0  | BKSP |
-            // | BTCLR| BT1 | BT2 | BT3 | BT4 | BT5 |   | LFT | DWN |  UP | RGT |     |      |
-            // | SHFT |     |     |     |     |     |   |     |     |     |     |     |      |
-            //                    | GUI |     | SPC |   | ENT |     | ALT |
+            // |  TAB |     |  7  |  8  |  9  |     |   | HOME| CAP |  UP |     |     | ESC  |
+            // | BKSP |  0  |  4  |  5  |  6  |     |   | DEL | LFT | DWN | RGT |     |      |
+            // |      |     |  1  |  2  |  3  |     |   |     |     |     |     |     |      |
+            //                    |     | BKSP|     |   | RET | SHFT| ALTG|
 
             bindings = <
-&kp TAB          &kp N1           &kp N2          &kp N3           &kp N4           &kp N5             &kp N6    &kp N7    &kp N8    &kp N9     &kp N0  &kp BSPC
-&bt BT_CLR       &bt BT_SEL 0     &bt BT_SEL 1    &bt BT_SEL 2     &bt BT_SEL 3     &bt BT_SEL 4       &kp LEFT  &kp DOWN  &kp UP    &kp RIGHT  &trans  &trans
-&rgb_ug RGB_EFF  &rgb_ug RGB_TOG  &rgb_ug RGB_ON  &rgb_ug RGB_OFF  &rgb_ug RGB_HUI  &rgb_ug RGB_SAI    &trans    &trans    &trans    &trans     &trans  &trans
-                                                  &rgb_ug RGB_SPI  &trans           &kp SPACE          &kp RET   &trans    &kp RALT
+&kp TAB   &trans  &kp N7  &kp N8  &kp N9    &trans    &kp HOME  &kp CAPS  &kp UP    &trans     &trans  &kp ESC
+&kp BSPC  &kp N0  &kp N4  &kp N5  &kp N6    &trans    &kp DEL   &kp LEFT  &kp DOWN  &kp RIGHT  &trans  &trans
+&trans    &trans  &kp N1  &kp N2  &kp N3    &trans    &trans    &trans    &trans    &trans     &trans  &trans
+                          &trans  &trans  &trans    &kp RET   &kp RSHFT &kp RALT
             >;
         };
 
