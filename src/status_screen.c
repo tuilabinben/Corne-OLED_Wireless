@@ -185,11 +185,10 @@ static void eq_timer_cb(lv_timer_t *timer) {
 
 #endif /* Central vs Peripheral */
 
-/* Global key listener: dismisses intro animation instantly on typing */
+/* Global key listener: accelerates EQ bars on typing */
 static int key_press_listener(const zmk_event_t *eh) {
     const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
     if (ev != NULL && ev->state) {
-        intro_dismiss();
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
         eq_step += 2;
 #endif
