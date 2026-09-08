@@ -130,15 +130,15 @@ static struct zmk_widget_layer_status layer_status_widget;
 #if IS_ENABLED(CONFIG_ZMK_WPM)
 static lv_obj_t *wpm_label;
 
-struct custom_wpm_state {
+typedef struct {
     int wpm;
-};
+} custom_wpm_state_t;
 
-static struct custom_wpm_state custom_wpm_get_state(const zmk_event_t *eh) {
-    return (struct custom_wpm_state){.wpm = zmk_wpm_get_state()};
+static custom_wpm_state_t custom_wpm_get_state(const zmk_event_t *eh) {
+    return (custom_wpm_state_t){.wpm = zmk_wpm_get_state()};
 }
 
-static void custom_wpm_update_cb(struct custom_wpm_state state) {
+static void custom_wpm_update_cb(custom_wpm_state_t state) {
     if (wpm_label == NULL) {
         return;
     }
@@ -148,8 +148,8 @@ static void custom_wpm_update_cb(struct custom_wpm_state state) {
     lv_obj_align(wpm_label, LV_ALIGN_BOTTOM_MID, 0, -1);
 }
 
-ZMK_DISPLAY_WIDGET_LISTENER(custom_wpm_widget, struct custom_wpm_state,
-                            custom_wpm_update_cb, custom_wpm_get_state)
+ZMK_DISPLAY_WIDGET_LISTENER(custom_wpm_widget, custom_wpm_state_t,
+                            custom_wpm_update_cb, custom_wpm_get_state);
 ZMK_SUBSCRIPTION(custom_wpm_widget, zmk_wpm_state_changed);
 #endif /* IS_ENABLED(CONFIG_ZMK_WPM) */
 
