@@ -11,10 +11,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/display/status_screen.h>
 #include <zmk/display/widgets/output_status.h>
 #include <zmk/display/widgets/peripheral_status.h>
-#include <zmk/display/widgets/battery_status.h>
 #include <zmk/display/widgets/layer_status.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
+#include <zmk/events/battery_state_changed.h>
+#include <zmk/battery.h>
 #include <zmk/display.h>
 
 #if IS_ENABLED(CONFIG_ZMK_WPM)
@@ -112,9 +113,43 @@ static void start_intro_animation(lv_obj_t *parent) {
 }
 
 /* =========================================================================
- * Central (Left) Half Widgets
+ * Custom Battery Widget (Symbol Only)
  * ========================================================================= */
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static lv_obj_t *battery_label = NULL;
+
+typedef struct {
+    uint8_t level;
+} custom_battery_state_t;
+
+static custom_battery_state_t custom_battery_get_state(const zmk_event_t *eh) {
+    return (custom_battery_state_t){.level = zmk_battery_state_of_charge()};
+}
+
+static void custom_battery_update_cb(custom_battery_state_t state) {
+    if (battery_label == NULL) {
+        return;
+    }
+    const char *icon = LV_SYMBOL_BATTERY_FULL;
+    if (state.level < 20) {
+        icon = LV_SYMBOL_BATTERY_EMPTY;
+    } else if (state.level < 40) {
+        icon = LV_SYMBOL_BATTERY_1;
+    } else if (state.level < 60) {
+        icon = LV_SYMBOL_BATTERY_2;
+    } else if (state.level < 80) {
+        icon = LV_SYMBOL_BATTERY_3;
+    }
+    lv_label_set_text(battery_label, icon);
+}
+
+ZMK_DISPLAY_WIDGET_LISTENER(custom_battery_widget, custom_battery_state_t,
+                            custom_battery_update_cb, custom_battery_get_state)
+ZMK_SUBSCRIPTION(custom_battery_widget, zmk_battery_state_changed);
+
+/* =========================================================================
+ * Central vs Peripheral Layouts
+ * ========================================================================= */
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
 
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
 static struct zmk_widget_battery_status battery_status_widget;
@@ -206,10 +241,10 @@ lv_obj_t *zmk_display_status_screen() {
     lv_obj_t *screen = lv_obj_create(NULL);
     lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
     /* Central (Left) Half - Outward BT, Centered Layer, Inward Battery */
 
-    /* Line 1: Bluetooth / USB Output on Top-Left (Outer edge) */
+    /* Line 1: Bluetooth / USB Output on Top-Left */
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
     zmk_widget_output_status_init(&output_status_widget, screen);
     lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
@@ -223,11 +258,11 @@ lv_obj_t *zmk_display_status_screen() {
     lv_obj_align(zmk_widget_layer_status_obj(&layer_status_widget), LV_ALIGN_TOP_MID, 0, 0);
 #endif
 
-    /* Line 1: Battery Percentage & Icon on Top-Right (Inner edge) */
-#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
-    zmk_widget_battery_status_init(&battery_status_widget, screen);
-    lv_obj_align(zmk_widget_battery_status_obj(&battery_status_widget), LV_ALIGN_TOP_RIGHT, 0, 0);
-#endif
+    /* Line 1: Custom Battery Symbol on Top-Right */
+    battery_label = lv_label_create(screen);
+    lv_label_set_text(battery_label, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, 0, 0);
+    custom_battery_widget_init();
 
     /* Line 2: Large Centered WPM Display filling the bottom area */
 #if IS_ENABLED(CONFIG_ZMK_WPM)
@@ -240,35 +275,35 @@ lv_obj_t *zmk_display_status_screen() {
 #endif
 
 #else
-    /* Peripheral (Right) Half - Mirrored: Inward Battery, Outward Link */
+    /* Peripheral (Right) Half - Same side matching left */
 
-    /* Line 1: Peripheral Battery on Top-Left (Inner edge, mirroring central battery) */
-#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
-    zmk_widget_battery_status_init(&peripheral_battery_status_widget, screen);
-    lv_obj_align(zmk_widget_battery_status_obj(&peripheral_battery_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
-#endif
-
-    /* Line 1: Split Link Status on Top-Right (Outer edge, mirroring central BT output) */
+    /* Line 1: Peripheral Connection Status on Top-Left */
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_PERIPHERAL_STATUS)
     zmk_widget_peripheral_status_init(&peripheral_status_widget, screen);
-    lv_obj_align(zmk_widget_peripheral_status_obj(&peripheral_status_widget), LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_align(zmk_widget_peripheral_status_obj(&peripheral_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
 #endif
 
-    /* Line 2: Equalizer Beat Bars across the bottom area */
+    /* Line 1: Custom Battery Symbol on Top-Right */
+    battery_label = lv_label_create(screen);
+    lv_label_set_text(battery_label, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, 0, 0);
+    custom_battery_widget_init();
+
+    /* Line 2: Audio/Typing Wave Visualizer anchored across the bottom */
     for (int i = 0; i < NUM_EQ_BARS; i++) {
         eq_bars[i] = lv_obj_create(screen);
-        lv_obj_clear_flag(eq_bars[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_style_all(eq_bars[i]); /* Remove transparent backgrounds and paddings */
         lv_obj_set_size(eq_bars[i], 5, base_eq_heights[i]);
-        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
         lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
-        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
-        lv_obj_set_style_radius(eq_bars[i], 1, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
+        /* Anchor to bottom left, spaced evenly */
         lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
     }
+
     lv_timer_create(eq_timer_cb, 100, NULL);
 #endif
 
-    /* Launch Option 1 Audio Pulse Oscilloscope Boot Animation */
+    /* Shared Audio Pulse Boot Animation */
     start_intro_animation(screen);
 
     return screen;
