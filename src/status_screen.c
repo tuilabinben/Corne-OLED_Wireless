@@ -1,0 +1,275 @@
+/*
+ * Copyright (c) 2024 The ZMK Contributors
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+
+#include <zmk/display/status_screen.h>
+#include <zmk/display/widgets/output_status.h>
+#include <zmk/display/widgets/peripheral_status.h>
+#include <zmk/display/widgets/battery_status.h>
+#include <zmk/display/widgets/layer_status.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/position_state_changed.h>
+
+#if IS_ENABLED(CONFIG_ZMK_WPM)
+#include <zmk/events/wpm_state_changed.h>
+#include <zmk/wpm.h>
+#endif
+
+/* =========================================================================
+ * Option 1: Audio Pulse / Oscilloscope Boot & Wake Animation
+ * ========================================================================= */
+#define NUM_WAVE_BARS 16
+static lv_obj_t *intro_overlay = NULL;
+static lv_timer_t *intro_timer = NULL;
+static lv_obj_t *wave_bars[NUM_WAVE_BARS];
+static uint8_t intro_step = 0;
+
+/* Soundwave amplitude lookup table: flat -> spike burst -> settle */
+static const int8_t wave_frames[10][NUM_WAVE_BARS] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, -2, 3, -5, 7, -8, 7, -5, 3, -2, 1, 0, 0, 0},
+    {0, 1, -3, 6, -10, 13, -14, 13, -10, 7, -4, 2, -1, 0, 0, 0},
+    {0, 0, 1, -4, 8, -13, 14, -13, 9, -6, 3, -1, 0, 0, 0, 0},
+    {0, 0, 0, 1, -3, 6, -9, 11, -8, 5, -3, 1, 0, 0, 0, 0},
+    {0, 0, 0, 0, 1, -2, 4, -6, 6, -4, 2, -1, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 1, -2, 3, -3, 2, -1, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+};
+
+static void intro_dismiss(void) {
+    if (intro_overlay != NULL) {
+        lv_obj_del(intro_overlay);
+        intro_overlay = NULL;
+    }
+    if (intro_timer != NULL) {
+        lv_timer_del(intro_timer);
+        intro_timer = NULL;
+    }
+}
+
+static void intro_timer_cb(lv_timer_t *timer) {
+    intro_step++;
+    if (intro_step >= 12) {
+        intro_dismiss();
+        return;
+    }
+
+    if (intro_step < 10 && intro_overlay != NULL) {
+        for (int i = 0; i < NUM_WAVE_BARS; i++) {
+            int8_t offset = wave_frames[intro_step][i];
+            int8_t h = offset >= 0 ? offset + 2 : (-offset) + 2;
+            int8_t y = 15 - (offset > 0 ? offset : 0);
+            if (wave_bars[i] != NULL) {
+                lv_obj_set_size(wave_bars[i], 4, h);
+                lv_obj_set_pos(wave_bars[i], 16 + (i * 6), y);
+            }
+        }
+    }
+}
+
+static void start_intro_animation(lv_obj_t *parent) {
+    intro_overlay = lv_obj_create(parent);
+    lv_obj_clear_flag(intro_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_size(intro_overlay, 128, 32);
+    lv_obj_set_pos(intro_overlay, 0, 0);
+    lv_obj_set_style_bg_color(intro_overlay, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(intro_overlay, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(intro_overlay, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(intro_overlay, 0, LV_PART_MAIN);
+
+    /* Flat baseline across the center at Y=15 */
+    lv_obj_t *baseline = lv_obj_create(intro_overlay);
+    lv_obj_clear_flag(baseline, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_size(baseline, 128, 2);
+    lv_obj_set_pos(baseline, 0, 15);
+    lv_obj_set_style_bg_color(baseline, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(baseline, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(baseline, 0, LV_PART_MAIN);
+
+    /* Waveform pulse segments */
+    for (int i = 0; i < NUM_WAVE_BARS; i++) {
+        wave_bars[i] = lv_obj_create(intro_overlay);
+        lv_obj_clear_flag(wave_bars[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_size(wave_bars[i], 4, 2);
+        lv_obj_set_pos(wave_bars[i], 16 + (i * 6), 15);
+        lv_obj_set_style_bg_color(wave_bars[i], lv_color_white(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(wave_bars[i], LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(wave_bars[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(wave_bars[i], 1, LV_PART_MAIN);
+    }
+
+    intro_step = 0;
+    intro_timer = lv_timer_create(intro_timer_cb, 55, NULL);
+}
+
+/* =========================================================================
+ * Central (Left) Half Widgets
+ * ========================================================================= */
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
+static struct zmk_widget_battery_status battery_status_widget;
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
+static struct zmk_widget_output_status output_status_widget;
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_LAYER_STATUS)
+static struct zmk_widget_layer_status layer_status_widget;
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_WPM)
+static lv_obj_t *wpm_label;
+
+struct custom_wpm_state {
+    int wpm;
+};
+
+static struct custom_wpm_state custom_wpm_get_state(const zmk_event_t *eh) {
+    return (struct custom_wpm_state){.wpm = zmk_wpm_get_state()};
+}
+
+static void custom_wpm_update_cb(struct custom_wpm_state state) {
+    if (wpm_label == NULL) {
+        return;
+    }
+    char text[16];
+    snprintf(text, sizeof(text), "%i WPM", state.wpm);
+    lv_label_set_text(wpm_label, text);
+    lv_obj_align(wpm_label, LV_ALIGN_BOTTOM_MID, 0, -1);
+}
+
+ZMK_DISPLAY_WIDGET_LISTENER(custom_wpm_widget, struct custom_wpm_state,
+                            custom_wpm_update_cb, custom_wpm_get_state)
+ZMK_SUBSCRIPTION(custom_wpm_widget, zmk_wpm_state_changed);
+#endif /* IS_ENABLED(CONFIG_ZMK_WPM) */
+
+#else
+/* =========================================================================
+ * Peripheral (Right) Half Widgets
+ * ========================================================================= */
+
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_PERIPHERAL_STATUS)
+static struct zmk_widget_peripheral_status peripheral_status_widget;
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
+static struct zmk_widget_battery_status peripheral_battery_status_widget;
+#endif
+
+#define NUM_EQ_BARS 11
+static lv_obj_t *eq_bars[NUM_EQ_BARS];
+static const uint8_t base_eq_heights[NUM_EQ_BARS] = {3, 6, 11, 15, 18, 14, 18, 15, 11, 6, 3};
+static volatile uint8_t eq_step = 0;
+
+static void eq_timer_cb(lv_timer_t *timer) {
+    eq_step++;
+    for (int i = 0; i < NUM_EQ_BARS; i++) {
+        if (eq_bars[i] == NULL) {
+            continue;
+        }
+        uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
+        lv_obj_set_height(eq_bars[i], h);
+    }
+}
+
+#endif /* Central vs Peripheral */
+
+/* Global key listener: dismisses intro animation instantly on typing */
+static int key_press_listener(const zmk_event_t *eh) {
+    const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
+    if (ev != NULL && ev->state) {
+        intro_dismiss();
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+        eq_step += 2;
+#endif
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(key_press_sub, key_press_listener);
+ZMK_SUBSCRIPTION(key_press_sub, zmk_position_state_changed);
+
+/* =========================================================================
+ * Main Status Screen Entry Point
+ * ========================================================================= */
+lv_obj_t *zmk_display_status_screen() {
+    lv_obj_t *screen = lv_obj_create(NULL);
+    lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    /* Central (Left) Half - Outward BT, Centered Layer, Inward Battery */
+
+    /* Line 1: Bluetooth / USB Output on Top-Left (Outer edge) */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
+    zmk_widget_output_status_init(&output_status_widget, screen);
+    lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
+#endif
+
+    /* Line 1: Active Layer Name on Top-Center */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_LAYER_STATUS)
+    zmk_widget_layer_status_init(&layer_status_widget, screen);
+    lv_obj_set_style_text_font(zmk_widget_layer_status_obj(&layer_status_widget),
+                               lv_theme_get_font_small(screen), LV_PART_MAIN);
+    lv_obj_align(zmk_widget_layer_status_obj(&layer_status_widget), LV_ALIGN_TOP_MID, 0, 0);
+#endif
+
+    /* Line 1: Battery Percentage & Icon on Top-Right (Inner edge) */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
+    zmk_widget_battery_status_init(&battery_status_widget, screen);
+    lv_obj_align(zmk_widget_battery_status_obj(&battery_status_widget), LV_ALIGN_TOP_RIGHT, 0, 0);
+#endif
+
+    /* Line 2: Large Centered WPM Display filling the bottom area */
+#if IS_ENABLED(CONFIG_ZMK_WPM)
+    wpm_label = lv_label_create(screen);
+    lv_obj_clear_flag(wpm_label, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_text_font(wpm_label, lv_theme_get_font_large(screen), LV_PART_MAIN);
+    lv_label_set_text(wpm_label, "0 WPM");
+    lv_obj_align(wpm_label, LV_ALIGN_BOTTOM_MID, 0, -1);
+    custom_wpm_widget_init();
+#endif
+
+#else
+    /* Peripheral (Right) Half - Mirrored: Inward Battery, Outward Link */
+
+    /* Line 1: Peripheral Battery on Top-Left (Inner edge, mirroring central battery) */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
+    zmk_widget_battery_status_init(&peripheral_battery_status_widget, screen);
+    lv_obj_align(zmk_widget_battery_status_obj(&peripheral_battery_status_widget), LV_ALIGN_TOP_LEFT, 0, 0);
+#endif
+
+    /* Line 1: Split Link Status on Top-Right (Outer edge, mirroring central BT output) */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_PERIPHERAL_STATUS)
+    zmk_widget_peripheral_status_init(&peripheral_status_widget, screen);
+    lv_obj_align(zmk_widget_peripheral_status_obj(&peripheral_status_widget), LV_ALIGN_TOP_RIGHT, 0, 0);
+#endif
+
+    /* Line 2: Equalizer Beat Bars across the bottom area */
+    for (int i = 0; i < NUM_EQ_BARS; i++) {
+        eq_bars[i] = lv_obj_create(screen);
+        lv_obj_clear_flag(eq_bars[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_size(eq_bars[i], 5, base_eq_heights[i]);
+        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(eq_bars[i], 1, LV_PART_MAIN);
+        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
+    }
+    lv_timer_create(eq_timer_cb, 100, NULL);
+#endif
+
+    /* Launch Option 1 Audio Pulse Oscilloscope Boot Animation */
+    start_intro_animation(screen);
+
+    return screen;
+}

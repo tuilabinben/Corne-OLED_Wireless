@@ -36,6 +36,7 @@
         compatible = "zmk,keymap";
 
         default_layer {
+            display-name = "Base";
             // -----------------------------------------------------------------------------------------
             // |  TAB |  Q  |  W  |  F  |  P  |  B  |   |  J  |  L   |  U  |  Y  |  ;  | BKSP |
             // | CTRL |  A  |  R  |  S  |  T  |  G  |   |  M  |  N   |  E  |  I  |  O  |  '   |
@@ -51,6 +52,7 @@
         };
 
         lower_layer {
+            display-name = "Nav";
             // -----------------------------------------------------------------------------------------
             // |  TAB |     |  7  |  8  |  9  |     |   | HOME| CAP |  UP |     |     | ESC  |
             // | BKSP |  0  |  4  |  5  |  6  |     |   | DEL | LFT | DWN | RGT |     |      |
@@ -66,6 +68,7 @@
         };
 
         raise_layer {
+            display-name = "Symbol";
             // -----------------------------------------------------------------------------------------
             // |  TAB |  1  |  2  |  3  |  4  |  5  |   |  6  |  7  |  8  |  9  |  0  | BKSP |
             // | CTRL |  !  |  @  |  #  |  $  |  %  |   |  ^  |  &  |  *  |  (  |  )  |  \   |
@@ -81,6 +84,7 @@
         };
 
         layer_3 {
+            display-name = "Media";
             // ---------------------------------------------------------------------------------------------------------
             // |  TAB |  F1  |  F2  |  F3  |  F4  |  F5  |   |  F6  |  F7  |  F8  |  F9  |  F10 | BKSP |
             // |      |      |      |      | SNIP |  F11 |   |  F12 | PREV | PLAY | NEXT |      |      |
@@ -96,6 +100,7 @@
         };
 
         layer_4 {
+            display-name = "Layer 4";
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans  &trans
@@ -105,6 +110,7 @@
         };
 
         layer_5 {
+            display-name = "Layer 5";
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans  &trans
