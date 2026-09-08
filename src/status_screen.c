@@ -15,6 +15,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/display/widgets/layer_status.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
+#include <zmk/display.h>
 
 #if IS_ENABLED(CONFIG_ZMK_WPM)
 #include <zmk/events/wpm_state_changed.h>
@@ -149,7 +150,7 @@ static void custom_wpm_update_cb(custom_wpm_state_t state) {
 }
 
 ZMK_DISPLAY_WIDGET_LISTENER(custom_wpm_widget, custom_wpm_state_t,
-                            custom_wpm_update_cb, custom_wpm_get_state);
+                            custom_wpm_update_cb, custom_wpm_get_state)
 ZMK_SUBSCRIPTION(custom_wpm_widget, zmk_wpm_state_changed);
 #endif /* IS_ENABLED(CONFIG_ZMK_WPM) */
 
