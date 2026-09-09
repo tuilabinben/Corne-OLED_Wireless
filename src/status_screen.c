@@ -206,8 +206,7 @@ static void eq_timer_cb(lv_timer_t *timer) {
             continue;
         }
         uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
-        lv_obj_set_size(eq_bars[i], 6, h);
-        /* Absolute positioning from bottom: Y = 32 - h. Center X = 41 + (i*10) */
+        /* Bouncing dot: update Y coordinate. Center X = 41 + (i*10) */
         lv_obj_set_pos(eq_bars[i], 41 + (i * 10), 32 - h);
     }
 }
@@ -290,20 +289,13 @@ lv_obj_t *zmk_display_status_screen() {
     lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, 0, 0);
     custom_battery_widget_init();
 
-    /* Line 2: Audio/Typing Wave Visualizer anchored across the bottom */
+    /* Line 2: Bouncing Dot Visualizer using labels (Guaranteed rendering) */
     for (int i = 0; i < NUM_EQ_BARS; i++) {
-        eq_bars[i] = lv_obj_create(screen);
-        lv_obj_clear_flag(eq_bars[i], LV_OBJ_FLAG_SCROLLABLE);
+        eq_bars[i] = lv_label_create(screen);
+        lv_obj_set_style_text_font(eq_bars[i], lv_theme_get_font_small(screen), LV_PART_MAIN);
+        lv_label_set_text(eq_bars[i], "O"); /* Use an 'O' character as a bouncing dot */
         
-        /* Style it EXACTLY like the boot animation wave_bars */
-        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
-        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(eq_bars[i], 0, LV_PART_MAIN);
-        lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_MAIN);
-        
-        lv_obj_set_size(eq_bars[i], 6, base_eq_heights[i]);
-        /* Absolute positioning from bottom: Y = 32 - h. Center X = 41 + (i*10) */
+        /* Absolute positioning. X is fixed, Y will be updated by timer */
         lv_obj_set_pos(eq_bars[i], 41 + (i * 10), 32 - base_eq_heights[i]);
     }
     lv_timer_create(eq_timer_cb, 100, NULL);
