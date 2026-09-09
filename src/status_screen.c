@@ -196,37 +196,36 @@ static struct zmk_widget_peripheral_status peripheral_status_widget;
 
 #define NUM_EQ_BARS 14
 static lv_obj_t *eq_bars[NUM_EQ_BARS];
-static const uint8_t base_eq_heights[NUM_EQ_BARS] = {5, 10, 15, 20, 25, 30, 25, 20, 15, 20, 25, 30, 25, 20};
-static uint8_t current_h[NUM_EQ_BARS] = {0};
-static volatile uint8_t anim_state = 0;
+/* Perfect sine wave shape from 0 to 24 */
+static const uint8_t wave_shape[14] = {12, 17, 21, 24, 24, 21, 17, 12, 6, 2, 0, 0, 2, 6};
+
+static uint8_t anim_tick = 0;
+static uint8_t anim_accum = 0;
 static volatile uint8_t eq_momentum = 0;
 
 static void eq_timer_cb(lv_timer_t *timer) {
     if (eq_momentum > 0) {
-        anim_state += (eq_momentum / 10) + 1;
-        eq_momentum--;
+        /* Accumulate horizontal speed based on typing momentum */
+        anim_accum += eq_momentum;
+        while (anim_accum >= 30) {
+            anim_tick++;
+            anim_accum -= 30;
+        }
+        eq_momentum--; /* Decay amplitude and speed smoothly */
     }
 
     for (int i = 0; i < NUM_EQ_BARS; i++) {
         if (eq_bars[i] == NULL) continue;
         
-        uint8_t target_h;
-        if (eq_momentum > 0) {
-            target_h = base_eq_heights[(i + anim_state) % NUM_EQ_BARS];
-        } else {
-            target_h = 5; /* Settle at the bottom when idle */
-        }
+        /* Get the wave's vertical value for this dot */
+        uint8_t wave_val = wave_shape[(i + anim_tick) % 14];
         
-        if (current_h[i] < target_h) {
-            current_h[i] += 2;
-            if (current_h[i] > target_h) current_h[i] = target_h;
-        } else if (current_h[i] > target_h) {
-            current_h[i] -= 2;
-            if (current_h[i] < target_h) current_h[i] = target_h;
-        }
+        /* Scale the wave's amplitude mathematically by momentum (0 to 40) */
+        /* Base height is 5. Wave adds up to 24 * (40/40) = 24 */
+        uint8_t h = 5 + (wave_val * eq_momentum) / 40;
 
-        /* 14 dots spaced across 128px. Width=14*8=112px. Margin=8px each side */
-        lv_obj_set_pos(eq_bars[i], 8 + (i * 8), 32 - current_h[i]);
+        /* 14 dots spaced across 128px */
+        lv_obj_set_pos(eq_bars[i], 8 + (i * 8), 32 - h);
     }
 }
 
@@ -314,8 +313,8 @@ lv_obj_t *zmk_display_status_screen() {
         lv_obj_set_style_text_font(eq_bars[i], lv_theme_get_font_small(screen), LV_PART_MAIN);
         lv_label_set_text(eq_bars[i], "O"); /* Use an 'O' character as a bouncing dot */
         
-        /* Absolute positioning. X is fixed, Y will be updated by timer */
-        lv_obj_set_pos(eq_bars[i], 8 + (i * 8), 32 - base_eq_heights[i]);
+        /* Absolute positioning. X is fixed, Y starts at 27 (32 - 5) */
+        lv_obj_set_pos(eq_bars[i], 8 + (i * 8), 27);
     }
     lv_timer_create(eq_timer_cb, 100, NULL);
 #endif
