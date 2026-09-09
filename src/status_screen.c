@@ -207,8 +207,8 @@ static void eq_timer_cb(lv_timer_t *timer) {
         }
         uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
         lv_obj_set_size(eq_bars[i], 6, h);
-        /* Center them on the bottom of the screen: -20, -10, 0, +10, +20 */
-        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_MID, -20 + (i * 10), -1);
+        /* Absolute positioning from bottom: Y = 32 - h. Center X = 41 + (i*10) */
+        lv_obj_set_pos(eq_bars[i], 41 + (i * 10), 32 - h);
     }
 }
 
@@ -236,7 +236,7 @@ lv_obj_t *zmk_display_status_screen() {
     lv_obj_set_size(screen, 128, 32); /* Explicitly set size to prevent alignment bugs */
     lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
     /* Central (Left) Half - Outward BT, Centered Layer, Inward Battery */
 
     /* Line 1: Bluetooth / USB Output on Top-Left */
@@ -303,8 +303,8 @@ lv_obj_t *zmk_display_status_screen() {
         lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_MAIN);
         
         lv_obj_set_size(eq_bars[i], 6, base_eq_heights[i]);
-        /* Align to BOTTOM_MID which is guaranteed to work (used by WPM label) */
-        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_MID, -20 + (i * 10), -1);
+        /* Absolute positioning from bottom: Y = 32 - h. Center X = 41 + (i*10) */
+        lv_obj_set_pos(eq_bars[i], 41 + (i * 10), 32 - base_eq_heights[i]);
     }
     lv_timer_create(eq_timer_cb, 100, NULL);
 #endif
