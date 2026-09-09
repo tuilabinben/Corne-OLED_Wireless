@@ -31,6 +31,20 @@
         };
     };
 
+    combos {
+        compatible = "zmk,combos";
+
+        volup {
+            bindings = <&kp C_VOLUME_UP>;
+            key-positions = <6 7>;
+        };
+
+        voldown {
+            bindings = <&kp C_VOL_DN>;
+            key-positions = <18 19>;
+        };
+    };
+
     keymap {
         compatible = "zmk,keymap";
 
