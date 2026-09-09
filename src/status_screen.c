@@ -194,9 +194,9 @@ ZMK_SUBSCRIPTION(custom_wpm_widget, zmk_wpm_state_changed);
 static struct zmk_widget_peripheral_status peripheral_status_widget;
 #endif
 
-#define NUM_EQ_BARS 11
+#define NUM_EQ_BARS 5
 static lv_obj_t *eq_bars[NUM_EQ_BARS];
-static const uint8_t base_eq_heights[NUM_EQ_BARS] = {3, 6, 11, 15, 18, 14, 18, 15, 11, 6, 3};
+static const uint8_t base_eq_heights[NUM_EQ_BARS] = {12, 22, 32, 22, 12};
 static volatile uint8_t eq_step = 0;
 
 static void eq_timer_cb(lv_timer_t *timer) {
@@ -206,7 +206,9 @@ static void eq_timer_cb(lv_timer_t *timer) {
             continue;
         }
         uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
-        lv_bar_set_value(eq_bars[i], h, LV_ANIM_OFF);
+        lv_obj_set_size(eq_bars[i], 6, h);
+        /* Center them on the bottom of the screen: -20, -10, 0, +10, +20 */
+        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_MID, -20 + (i * 10), -1);
     }
 }
 
@@ -290,24 +292,19 @@ lv_obj_t *zmk_display_status_screen() {
 
     /* Line 2: Audio/Typing Wave Visualizer anchored across the bottom */
     for (int i = 0; i < NUM_EQ_BARS; i++) {
-        eq_bars[i] = lv_bar_create(screen);
-        lv_bar_set_range(eq_bars[i], 0, 32);
-        lv_bar_set_value(eq_bars[i], base_eq_heights[i], LV_ANIM_OFF);
+        eq_bars[i] = lv_obj_create(screen);
+        lv_obj_clear_flag(eq_bars[i], LV_OBJ_FLAG_SCROLLABLE);
         
-        lv_obj_set_size(eq_bars[i], 5, 32);
-        
-        /* Make the bar background completely transparent so only the active value shows */
-        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_TRANSP, LV_PART_MAIN);
+        /* Style it EXACTLY like the boot animation wave_bars */
+        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(eq_bars[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_MAIN);
         
-        /* Style the actual filled part to be solid white */
-        lv_obj_set_style_bg_color(eq_bars[i], lv_color_white(), LV_PART_INDICATOR);
-        lv_obj_set_style_bg_opa(eq_bars[i], LV_OPA_COVER, LV_PART_INDICATOR);
-        lv_obj_set_style_border_width(eq_bars[i], 0, LV_PART_INDICATOR);
-        lv_obj_set_style_radius(eq_bars[i], 0, LV_PART_INDICATOR);
-        
-        /* Anchor to bottom left, spaced evenly */
-        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_LEFT, 15 + (i * 9), 0);
+        lv_obj_set_size(eq_bars[i], 6, base_eq_heights[i]);
+        /* Align to BOTTOM_MID which is guaranteed to work (used by WPM label) */
+        lv_obj_align(eq_bars[i], LV_ALIGN_BOTTOM_MID, -20 + (i * 10), -1);
     }
     lv_timer_create(eq_timer_cb, 100, NULL);
 #endif
