@@ -149,7 +149,7 @@ ZMK_SUBSCRIPTION(custom_battery_widget, zmk_battery_state_changed);
 /* =========================================================================
  * Central vs Peripheral Layouts
  * ========================================================================= */
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) || !IS_ENABLED(CONFIG_ZMK_SPLIT)
 
 #if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
 static struct zmk_widget_output_status output_status_widget;
@@ -194,20 +194,39 @@ ZMK_SUBSCRIPTION(custom_wpm_widget, zmk_wpm_state_changed);
 static struct zmk_widget_peripheral_status peripheral_status_widget;
 #endif
 
-#define NUM_EQ_BARS 5
+#define NUM_EQ_BARS 14
 static lv_obj_t *eq_bars[NUM_EQ_BARS];
-static const uint8_t base_eq_heights[NUM_EQ_BARS] = {12, 22, 32, 22, 12};
-static volatile uint8_t eq_step = 0;
+static const uint8_t base_eq_heights[NUM_EQ_BARS] = {5, 10, 15, 20, 25, 30, 25, 20, 15, 20, 25, 30, 25, 20};
+static uint8_t current_h[NUM_EQ_BARS] = {0};
+static volatile uint8_t anim_state = 0;
+static volatile uint8_t eq_momentum = 0;
 
 static void eq_timer_cb(lv_timer_t *timer) {
-    eq_step++;
+    if (eq_momentum > 0) {
+        anim_state += (eq_momentum / 10) + 1;
+        eq_momentum--;
+    }
+
     for (int i = 0; i < NUM_EQ_BARS; i++) {
-        if (eq_bars[i] == NULL) {
-            continue;
+        if (eq_bars[i] == NULL) continue;
+        
+        uint8_t target_h;
+        if (eq_momentum > 0) {
+            target_h = base_eq_heights[(i + anim_state) % NUM_EQ_BARS];
+        } else {
+            target_h = 5; /* Settle at the bottom when idle */
         }
-        uint8_t h = base_eq_heights[(i + eq_step) % NUM_EQ_BARS];
-        /* Bouncing dot: update Y coordinate. Center X = 41 + (i*10) */
-        lv_obj_set_pos(eq_bars[i], 41 + (i * 10), 32 - h);
+        
+        if (current_h[i] < target_h) {
+            current_h[i] += 2;
+            if (current_h[i] > target_h) current_h[i] = target_h;
+        } else if (current_h[i] > target_h) {
+            current_h[i] -= 2;
+            if (current_h[i] < target_h) current_h[i] = target_h;
+        }
+
+        /* 14 dots spaced across 128px. Width=14*8=112px. Margin=8px each side */
+        lv_obj_set_pos(eq_bars[i], 8 + (i * 8), 32 - current_h[i]);
     }
 }
 
@@ -218,7 +237,7 @@ static int key_press_listener(const zmk_event_t *eh) {
     const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
     if (ev != NULL && ev->state) {
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-        eq_step += 2;
+        eq_momentum = 40; /* Boost animation momentum */
 #endif
     }
     return ZMK_EV_EVENT_BUBBLE;
@@ -296,7 +315,7 @@ lv_obj_t *zmk_display_status_screen() {
         lv_label_set_text(eq_bars[i], "O"); /* Use an 'O' character as a bouncing dot */
         
         /* Absolute positioning. X is fixed, Y will be updated by timer */
-        lv_obj_set_pos(eq_bars[i], 41 + (i * 10), 32 - base_eq_heights[i]);
+        lv_obj_set_pos(eq_bars[i], 8 + (i * 8), 32 - base_eq_heights[i]);
     }
     lv_timer_create(eq_timer_cb, 100, NULL);
 #endif
